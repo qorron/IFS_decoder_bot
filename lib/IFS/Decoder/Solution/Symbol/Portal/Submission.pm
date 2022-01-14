@@ -12,7 +12,7 @@ has 'note' => (
 
 has 'submitter' => (
     is      => 'rw',
-    isa     => 'IFS::Decoder::Submitter',
+    isa     => 'Telegram::User',
 	required => 1,
 );
  
@@ -37,6 +37,11 @@ has 'submission_time' => (
 sub point {
 	my $self = shift;
 	return { lat => $self->lat, lng => $self->lng };
+}
+
+sub to_string {
+	my $self = shift;
+	return 'https://intel.ingress.com/intel?pll='.$self->lat.','.$self->lng;
 }
 
 42;

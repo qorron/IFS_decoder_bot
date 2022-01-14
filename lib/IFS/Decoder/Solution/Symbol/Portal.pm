@@ -21,7 +21,17 @@ has 'submissions' => (
 	},
 );
 
-sub delete_submission {}
+sub delete_submission {
+	my $self = shift;
+	
+	my $best;
+	my $r = 'Nothing to undo';
+	if ($best = $self->best) {
+		$best->to_string;
+		...;
+	}
+	
+}
  
 sub best {
 	my $self = shift;

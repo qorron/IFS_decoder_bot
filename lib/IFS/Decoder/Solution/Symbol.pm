@@ -4,13 +4,15 @@ use 5.030;
 package IFS::Decoder::Solution::Symbol;
 use Moose;
 use List::Util qw(all any);
+
 use JSON;
+use IFS::Decoder::Solution::Symbol::Portal;
 
 with 'IFS::Decoder::Theme';
  
 has 'type'          => ( is => 'rw', isa => 'Str' );
 has 'solution'      => ( is => 'rw', isa => 'Str' );
-has 'solution_note' => ( is => 'rw', isa => 'Str' );
+has 'solution_note' => ( is => 'rw', isa => 'Str', default => '' );
 has 'portal_count'  => ( is => 'ro', isa => 'Int', required => 1, );
  
 has 'portals' => (
@@ -46,10 +48,15 @@ sub add {
 
 sub delete_submission {
 	my $self = shift;
-	my ($pos, $index) = @_;
-	$pos--; # usres start with 1, arrays starrt with 0
-	$index--;
-	$self->portals->[$pos]->delete_index($index);
+	my ( $pos, $index ) = @_;
+	my $r = "$pos-$index has nothing yet";
+	if ( $self->portals->[$pos]->best ) {
+		$r = "removing: $pos-$index " . $self->portals->[$pos]->best->to_string;
+		$pos--;    # users start with 1, arrays starrt with 0
+		$index--;
+		$self->portals->[$pos]->delete_index($index);
+	}
+	return $r;
 }
 
 sub max_index {
@@ -114,7 +121,7 @@ sub iitc_data {
 
 sub iitc_json {
 	my $self = shift;
-	return encode_json( $self->iitc_data );
+	return JSON->new->canonical->encode( $self->iitc_data );
 }
 
 sub links {
@@ -137,12 +144,43 @@ sub intel_link {
 		. join( '_', map { join ',', $_->@* } $links->@* );
 }
 
+
+sub detail {
+	my $self = shift;
+	my $r    = '';
+
+	$r .= $self->type . "\n";
+	$r .= "Solution: '" . $self->solution . "'" . ( $self->solution_note ? " " . $self->solution_note : '' ) . "\n"
+		if $self->has_solution;
+	$r .= $self->structure . "\n";
+	if ( $self->has_submissions ) {
+		$r .= "IITC Drawing:\n<code>" . $self->iitc_json . "</code>\n";
+		$r .= '<a href="' . $self->intel_link . qq'">Stock Intel Link</a>\n' if $self->links->@*;
+	}
+	return $r;
+}
+
+sub solve {
+	my $self = shift;
+	my ($solution, $solution_note) = @_;
+	$self->solution($solution);
+	$self->solution_note($solution_note) if $solution_note;
+}
 # https://intel.ingress.com/?ll=48.206085,16.375315&z=16&pls=
 # 48.199996,16.369424,48.212021,16.368891
 # 48.212021,16.368891,48.211888,16.378676
 # 48.211888,16.378676,48.206793,16.378702
 # 48.206793,16.378702,48.206852,16.368848
 # 48.206852,16.368848,48.20047,16.379501
+
+sub has_solution {
+	my $self = shift;
+	return defined $self->solution() ? 1 : 0;
+}
+sub solution_or_blank {
+	my $self = shift;
+	return $self->has_solution() ? $self->solution() : '_';
+}
 
 42;
 

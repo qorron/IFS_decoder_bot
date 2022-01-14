@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use 5.030;
 use Data::Dumper;
-use Test::More tests => 42;
+use Test::More tests => 53;
 use Encode;
 use JSON;
 use Test::JSON;
@@ -11,6 +11,7 @@ use Test::JSON;
 use lib qw(../lib lib);
 
 use IFS::Decoder::Submitter;
+use IFS::Decoder::Solution;
 use IFS::Decoder::Solution::Symbol;
 use IFS::Decoder::Solution::Symbol::Portal;
 use IFS::Decoder::Solution::Symbol::Portal::Submission;
@@ -130,10 +131,99 @@ is_json( $iitc_json = $symbol_1->iitc_json, encode_json( ref_data('two_couples')
 is( $intel_link = $symbol_1->intel_link, ref_intel('two_couples'), 'intel link ok' ) or diag("intel_link: $intel_link");
 $symbol_1->add( 3, $submissions[3] );
 $symbol_1->add( 6, $submissions[6] );
-like( $symbol_1->structure_body, qr/[🟩🟦]{6}/, 'structure body: complete' );
+like( $symbol_1->structure_body, qr/(?:🟩|🟦){6}/, 'structure body: complete' );
 is_deeply( $iitc_data = $symbol_1->iitc_data, ref_data('full'), 'iitc data ok' )                or diag( Dumper $iitc_data);
 is_json( $iitc_json   = $symbol_1->iitc_json, encode_json( ref_data('full') ), 'iitc json ok' ) or diag("json: $iitc_json");
 is( $intel_link = $symbol_1->intel_link, ref_intel('full'), 'intel link ok' ) or diag("intel_link: $intel_link");
+ok(!$symbol_1->has_solution, 'no solution yet');
+$symbol_1->solve('R');
+ok($symbol_1->has_solution, 'now we have a solution');
+$symbol_1->solve('R', "I'm sure");
+ok($symbol_1->has_solution, 'we still have a solution');
+
+
+my $solution = new_ok('IFS::Decoder::Solution' => [header => 'keyword: xxx##keyword###xx' ], 'generate a solution');
+
+my $symbol_2 = new_ok(
+	'IFS::Decoder::Solution::Symbol' => [
+		portal_count => 5,
+		type         => 'number'
+	],
+	'generate new symbol'
+);
+my $symbol_3 = new_ok(
+	'IFS::Decoder::Solution::Symbol' => [
+		portal_count => 7,
+		type         => 'glyph'
+	],
+	'generate new symbol'
+);
+
+$solution->add($symbol_1);
+$solution->add($symbol_2);
+$solution->add($symbol_3);
+
+$symbol_2->add( 3, $submissions[3] );
+$symbol_2->add( 4, $submissions[4] );
+$symbol_2->add( 5, $submissions[5] );
+$symbol_2->add( 1, $submissions[1] );
+$symbol_3->add( 5, $submissions[5] );
+$symbol_3->add( 6, $submissions[6] );
+$symbol_3->add( 2, $submissions[2] );
+$symbol_3->add( 1, $submissions[1] );
+
+$symbol_3->solve('x', "maybe");
+is ($symbol_3->detail, q!glyph
+Solution: 'x' maybe
+1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣
+🟨🟨❌❌🟨🟨❌
+IITC Drawing:
+<code>[{"color":"#57D600","latLng":{"lat":"48.199996","lng":"16.369424"},"type":"marker"},{"color":"#d14a21","latLngs":[{"lat":"48.199996","lng":"16.369424"},{"lat":"48.212021","lng":"16.368891"}],"type":"polyline"},{"color":"#aaaaaa","latLng":{"lat":"48.212021","lng":"16.368891"},"type":"marker"},{"color":"#CFD200","latLng":{"lat":"48.206852","lng":"16.368848"},"type":"marker"},{"color":"#d14a21","latLngs":[{"lat":"48.206852","lng":"16.368848"},{"lat":"48.20047","lng":"16.379501"}],"type":"polyline"},{"color":"#aaaaaa","latLng":{"lat":"48.20047","lng":"16.379501"},"type":"marker"}]</code>
+<a href="https://intel.ingress.com/?ll=48.199996,16.369424&z=16&pls=48.199996,16.369424,48.212021,16.368891_48.206852,16.368848,48.20047,16.379501">Stock Intel Link</a>
+!, 'symbol detail');
+
+#diag( $solution->solution_string );
+is( $solution->solution_string, 'R_x', 'present solution' );
+#diag( $solution->structure_string );
+like( $solution->structure_string, qr"(?:🟩|🟦){6}\n🟧❌🟨🟨🟨\n🟨🟨❌❌🟨🟨❌",
+	'present structure' );
+# diag($solution->progress);
+like( $solution->progress, qr"Symbol 1: 6 portals letter
+R I'm sure
+1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣
+(?:🟩|🟦){6}
+/show_detail_1
+
+Symbol 2: 5 portals number
+_ 
+1️⃣2️⃣3️⃣4️⃣5️⃣
+🟧❌🟨🟨🟨
+/show_detail_2
+
+Symbol 3: 7 portals glyph
+x maybe
+1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣
+🟨🟨❌❌🟨🟨❌
+/show_detail_3",
+	'present summary' );
+
+# like( $solution->progress, qr"Symbol 1: 6 portals letter\nR I'm sure\n1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣\n[🟩🟦]{6}\n/show_detail_1\n\nSymbol 2: 5 portals number\n_ \n1️⃣2️⃣3️⃣4️⃣5️⃣\n🟧❌🟨🟨🟨\n/show_detail_2\n\nSymbol 3: 7 portals glyph\n_ \n1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣\n🟨🟨❌❌🟨🟨❌\n/show_detail_3",
+#     'present summary' );
+
+
+
+is ($solution->detail(3), q!Symbol: 3 glyph
+Solution: 'x' maybe
+1️⃣2️⃣3️⃣4️⃣5️⃣6️⃣7️⃣
+🟨🟨❌❌🟨🟨❌
+IITC Drawing:
+<code>[{"color":"#57D600","latLng":{"lat":"48.199996","lng":"16.369424"},"type":"marker"},{"color":"#d14a21","latLngs":[{"lat":"48.199996","lng":"16.369424"},{"lat":"48.212021","lng":"16.368891"}],"type":"polyline"},{"color":"#aaaaaa","latLng":{"lat":"48.212021","lng":"16.368891"},"type":"marker"},{"color":"#CFD200","latLng":{"lat":"48.206852","lng":"16.368848"},"type":"marker"},{"color":"#d14a21","latLngs":[{"lat":"48.206852","lng":"16.368848"},{"lat":"48.20047","lng":"16.379501"}],"type":"polyline"},{"color":"#aaaaaa","latLng":{"lat":"48.20047","lng":"16.379501"},"type":"marker"}]</code>
+<a href="https://intel.ingress.com/?ll=48.199996,16.369424&z=16&pls=48.199996,16.369424,48.212021,16.368891_48.206852,16.368848,48.20047,16.379501">Stock Intel Link</a>
+!, 'symbol detail');
+
+
+
+
 
 
 sub ref_intel {
