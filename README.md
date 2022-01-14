@@ -1,4 +1,4 @@
-# IFS_docoder_bot
+# IFS decoder bot
 tg bot that keeps track of IFS passcode decoding
 
 test it with:
